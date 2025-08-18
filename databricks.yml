@@ -1,0 +1,49 @@
+bundle:
+  name: ad_monitor
+  uuid: c9ddc239-3bcb-4783-abba-fb073eab5250
+
+variables:
+  catalog_name:
+    description: "The name of the Unity Catalog to deploy to."
+    default: "ad_monitor"
+  jobs_schema:
+    description: "Schema name for job outputs"
+  mode:
+    description: "Execution mode (development or production)"
+
+artifacts:
+  python_artifact:
+    type: whl
+    build: uv build --wheel
+
+include:
+  - resources/*.yml
+  - resources/*/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-2c135079-adc5.cloud.databricks.com
+    variables:
+      jobs_schema: ad_monitor_dev_jobs
+      mode: development
+
+  custom:
+    mode: production
+    workspace:
+      host: https://dbc-2c135079-adc5.cloud.databricks.com
+      root_path: /Workspace/Users/ahmedrufai.otuoze@data2bots.com/.bundle/${bundle.name}/custom
+    variables:
+      jobs_schema: ad_monitor_custom_jobs
+      mode: production
+  # prod:
+  #   mode: production
+  #   workspace:
+  #     # host: https://dbc-778ed4e0-7dc4.cloud.databricks.com
+  #     # We explicitly deploy to /Workspace/Users/ahmedrufai.otuoze@data2bots.com to make sure we only have a single copy.
+  #     root_path: /Workspace/Users/ahmedrufai.otuoze@data2bots.com/.bundle/${bundle.name}/${bundle.target}
+  #   permissions:
+  #     - user_name: ahmedrufai.otuoze@data2bots.com
+  #       level: CAN_MANAGE

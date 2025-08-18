@@ -1,0 +1,94 @@
+resources:
+
+  
+      
+  # Schemas 
+  schemas:
+    landing_schema:
+      catalog_name: ${var.catalog_name}
+      name: landing
+    bronze_schema:
+      catalog_name: ${var.catalog_name}
+      name: bronze
+    silver_schema:
+      catalog_name: ${var.catalog_name}
+      name: silver
+    gold_schema:
+      catalog_name: ${var.catalog_name}
+      name: gold
+
+  # Pipelines
+  pipelines:
+    bronze_pipeline:
+      name: "DLT - 01 - Bronze"
+      target: bronze
+      catalog: ${var.catalog_name}
+      serverless: true
+      root_path: /Workspace/Users/ahmedrufai.otuoze@data2bots.com/.bundle/${bundle.name}/custom/files/src/notebooks
+      libraries:
+        - notebook:
+            path: ../src/notebooks/bronze.ipynb
+      configuration:
+        CATALOG_NAME: ${var.catalog_name}
+        LANDING_ZONE_SCHEMA: "landing"
+        
+
+    silver_pipeline:
+      name: "DLT - 02 - Silver"
+      target: silver
+      catalog: ${var.catalog_name}
+      serverless: true
+      root_path: /Workspace/Users/ahmedrufai.otuoze@data2bots.com/.bundle/${bundle.name}/custom/files/src/notebooks
+      libraries:
+        - notebook:
+            path: ../src/notebooks/silver.ipynb
+      configuration:
+        spark.sql.dlt.source.LIVE.cluster: "${var.catalog_name}.bronze"
+        
+
+    gold_pipeline:
+      name: "DLT - 03 - Gold"
+      target: gold
+      catalog: ${var.catalog_name}
+      serverless: true
+      root_path: /Workspace/Users/ahmedrufai.otuoze@data2bots.com/.bundle/${bundle.name}/custom/files/src/notebooks
+      libraries:
+        - notebook:
+            path: ../src/notebooks/gold.ipynb
+      configuration:
+        spark.sql.dlt.source.LIVE.cluster: "${var.catalog_name}.silver"
+        
+
+
+  jobs:
+
+    medallion_orchestrator:
+      name: "Job - Medallion Ad Spend Monitor"
+      tasks:
+        
+        # TASK 1: Run the single Python script to set up and generate data
+        - task_key: "Setup_and_Generate_Data"
+          notebook_task:
+            notebook_path: ../src/notebooks/landing.ipynb
+
+        # TASK 2: Bronze pipeline now depends on the setup/generation task
+       
+        - task_key: "Run_Bronze_Pipeline"
+          depends_on:
+            - task_key: "Setup_and_Generate_Data"
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.bronze_pipeline.id}
+
+
+        - task_key: "Run_Silver_Pipeline"
+          depends_on:
+            - task_key: "Run_Bronze_Pipeline"
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.silver_pipeline.id}
+
+            
+        - task_key: "Run_Gold_Pipeline"
+          depends_on:
+            - task_key: "Run_Silver_Pipeline"
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.gold_pipeline.id}
