@@ -1,0 +1,15 @@
+{
+  "name": "Databricks Ad Monitor Project",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "databricks.databricks"
+      ]
+    }
+  },
+  // This command runs after the container is created
+  "postCreateCommand": "/bin/bash /usr/local/share/post-create.sh"
+}

@@ -1,7 +1,4 @@
 resources:
-
-  
-      
   # Schemas 
   schemas:
     landing_schema:
@@ -59,9 +56,7 @@ resources:
         spark.sql.dlt.source.LIVE.cluster: "${var.catalog_name}.silver"
         
 
-
   jobs:
-
     medallion_orchestrator:
       name: "Job - Medallion Ad Spend Monitor"
       tasks:
@@ -71,24 +66,33 @@ resources:
           notebook_task:
             notebook_path: ../src/notebooks/landing.ipynb
 
-        # TASK 2: Bronze pipeline now depends on the setup/generation task
-       
+        # TASK 2
         - task_key: "Run_Bronze_Pipeline"
           depends_on:
             - task_key: "Setup_and_Generate_Data"
           pipeline_task:
             pipeline_id: ${resources.pipelines.bronze_pipeline.id}
 
-
+        # Task 3
         - task_key: "Run_Silver_Pipeline"
           depends_on:
             - task_key: "Run_Bronze_Pipeline"
           pipeline_task:
             pipeline_id: ${resources.pipelines.silver_pipeline.id}
 
-            
+        # Task 4
         - task_key: "Run_Gold_Pipeline"
           depends_on:
             - task_key: "Run_Silver_Pipeline"
           pipeline_task:
             pipeline_id: ${resources.pipelines.gold_pipeline.id}
+      email_notifications:
+        on_failure:
+          - ahmedrufai.otuoze@data2bots.com #move to GH
+    
+    dashboard_refresh_job:
+      name: "Ad Dashboard Refresh"
+
+      schedule:
+        quartz_cron_expression: '0 0 8 * * ?' # daily at 8am
+        timezone_id: UTC

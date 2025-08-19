@@ -8,6 +8,9 @@ variables:
     default: "ad_monitor"
   jobs_schema:
     description: "Schema name for job outputs"
+  warehouse_id:
+    description: "Warehouse ID for dashboard queries and SQL tasks"
+    default: 6c338bb79ae92785 #moe this to GH 
   mode:
     description: "Execution mode (development or production)"
 
@@ -25,7 +28,7 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://dbc-2c135079-adc5.cloud.databricks.com
+      host: https://dbc-2c135079-adc5.cloud.databricks.com #move this to GH
     variables:
       jobs_schema: ad_monitor_dev_jobs
       mode: development
@@ -38,6 +41,9 @@ targets:
     variables:
       jobs_schema: ad_monitor_custom_jobs
       mode: production
+    sync:
+      exclude:
+        - src/dashboards/*.lvdash.json
   # prod:
   #   mode: production
   #   workspace:

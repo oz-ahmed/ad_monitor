@@ -3,6 +3,9 @@ name = "ad_monitor"
 version = "0.0.1"
 authors = [{ name = "ahmedrufai.otuoze@data2bots.com" }]
 requires-python = ">= 3.11"
+dependencies = [
+    "databricks-connect>=16.1.6",
+]
 
 [project.optional-dependencies]
 dev = [

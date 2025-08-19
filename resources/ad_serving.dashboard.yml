@@ -1,0 +1,6 @@
+resources:
+  dashboards:
+    ad_serving:
+      display_name: "ad_serving"
+      warehouse_id: 6c338bb79ae92785
+      file_path: ../src/dashboards/ad_serving.lvdash.json

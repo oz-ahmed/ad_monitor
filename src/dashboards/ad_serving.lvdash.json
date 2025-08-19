@@ -1,0 +1,1186 @@
+{
+  "datasets": [
+    {
+      "displayName": "real time budget monitoring",
+      "name": "fc3c2bf6",
+      "queryLines": [
+        "SELECT \r\n",
+        "    advertiser_id,\r\n",
+        "    spend_date,\r\n",
+        "    daily_gross_spend,\r\n",
+        "    daily_net_spend,\r\n",
+        "    current_daily_budget,\r\n",
+        "    remaining_gross_budget,\r\n",
+        "    remaining_net_budget,\r\n",
+        "    gross_budget_utilization_pct,\r\n",
+        "    net_budget_utilization_pct,\r\n",
+        "    ad_serving_status,\r\n",
+        "    CASE \r\n",
+        "        WHEN gross_budget_utilization_pct >= 100 THEN '🔴 STOPPED'\r\n",
+        "        WHEN gross_budget_utilization_pct >= 95 THEN '🟠 CRITICAL'\r\n",
+        "        WHEN gross_budget_utilization_pct >= 80 THEN '🟡 WARNING'\r\n",
+        "        ELSE '🟢 ACTIVE'\r\n",
+        "    END as status_indicator,\r\n",
+        "    calculated_at\r\n",
+        "FROM ad_monitor.gold.gold_daily_advertiser_spend_summary\r\n",
+        "WHERE spend_date <= CURRENT_DATE()\r\n",
+        "ORDER BY gross_budget_utilization_pct DESC;"
+      ]
+    },
+    {
+      "displayName": "critical budget alerts",
+      "name": "2f294ae2",
+      "queryLines": [
+        "SELECT \r\n",
+        "    advertiser_id,\r\n",
+        "    daily_gross_spend,\r\n",
+        "    current_daily_budget,\r\n",
+        "    remaining_gross_budget,\r\n",
+        "    gross_budget_utilization_pct,\r\n",
+        "    ad_serving_status,\r\n",
+        "    CASE \r\n",
+        "        WHEN remaining_gross_budget <= 0 THEN 'BUDGET EXCEEDED - STOP ADS'\r\n",
+        "        WHEN remaining_gross_budget <= current_daily_budget * 0.05 THEN 'CRITICAL - 5% REMAINING'\r\n",
+        "        WHEN remaining_gross_budget <= current_daily_budget * 0.20 THEN 'WARNING - 20% REMAINING'\r\n",
+        "    END as alert_message,\r\n",
+        "    calculated_at\r\n",
+        "FROM ad_monitor.gold.gold_daily_advertiser_spend_summary\r\n",
+        "WHERE spend_date <= CURRENT_DATE()\r\n",
+        "    AND (\r\n",
+        "        gross_budget_utilization_pct >= 80 \r\n",
+        "        OR ad_serving_status IN ('STOPPED', 'CRITICAL', 'WARNING')\r\n",
+        "    )\r\n",
+        "ORDER BY gross_budget_utilization_pct DESC;"
+      ]
+    },
+    {
+      "displayName": "Hourly Spend Utilization",
+      "name": "5b6468e6",
+      "queryLines": [
+        "SELECT \r\n",
+        "    advertiser_id,\r\n",
+        "    moment as hour_moment,\r\n",
+        "    hourly_gross_spend,\r\n",
+        "    hourly_net_spend,\r\n",
+        "    SUM(hourly_gross_spend) OVER (\r\n",
+        "        PARTITION BY advertiser_id \r\n",
+        "        ORDER BY moment \r\n",
+        "        ROWS UNBOUNDED PRECEDING\r\n",
+        "    ) as cumulative_gross_spend,\r\n",
+        "    SUM(hourly_net_spend) OVER (\r\n",
+        "        PARTITION BY advertiser_id \r\n",
+        "        ORDER BY moment \r\n",
+        "        ROWS UNBOUNDED PRECEDING\r\n",
+        "    ) as cumulative_net_spend,\r\n",
+        "    calculated_at\r\n",
+        "FROM ad_monitor.silver.silver_hourly_spend_summary\r\n",
+        "WHERE DATE(calculated_at) <= CURRENT_DATE()\r\n",
+        "    AND advertiser_id IN (\r\n",
+        "        SELECT advertiser_id \r\n",
+        "        FROM ad_monitor.gold.gold_daily_advertiser_spend_summary \r\n",
+        "        WHERE spend_date <= CURRENT_DATE()\r\n",
+        "        ORDER BY gross_budget_utilization_pct DESC \r\n",
+        "        LIMIT 10\r\n",
+        "    )\r\n",
+        "ORDER BY advertiser_id, moment;"
+      ]
+    },
+    {
+      "displayName": "Budget Change Impact",
+      "name": "71a0124a",
+      "queryLines": [
+        "SELECT \r\n",
+        "    advertiser_id,\r\n",
+        "    budget_change_time,\r\n",
+        "    previous_budget,\r\n",
+        "    new_budget,\r\n",
+        "    budget_change,\r\n",
+        "    budget_change_pct,\r\n",
+        "    budget_change_type,\r\n",
+        "    CASE \r\n",
+        "        WHEN budget_change_type = 'INCREASE' THEN '📈 INCREASED'\r\n",
+        "        WHEN budget_change_type = 'DECREASE' THEN '📉 DECREASED'\r\n",
+        "        ELSE '🆕 INITIAL'\r\n",
+        "    END as change_indicator,\r\n",
+        "    processed_at\r\n",
+        "FROM ad_monitor.gold.gold_budget_change_impact\r\n",
+        "WHERE DATE(budget_change_time) <= CURRENT_DATE()\r\n",
+        "ORDER BY budget_change_time DESC;"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "displayName": "Summary",
+      "layout": [
+        {
+          "position": {
+            "height": 4,
+            "width": 3,
+            "x": 0,
+            "y": 8
+          },
+          "widget": {
+            "name": "2c147a61",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "5b6468e6",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`hourly_gross_spend`",
+                      "name": "hourly_gross_spend"
+                    },
+                    {
+                      "expression": "`hour_moment`",
+                      "name": "hour_moment"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "label": {
+                  "show": false
+                },
+                "x": {
+                  "displayName": "hourly_gross_spend",
+                  "fieldName": "hourly_gross_spend",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "displayName": "hour_moment",
+                  "fieldName": "hour_moment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Hourly Gross Spent Utilization"
+              },
+              "mark": {
+                "colors": [
+                  {
+                    "position": 1,
+                    "themeColorType": "visualizationColors"
+                  },
+                  "#FFAB00",
+                  "#00A972",
+                  "#FF3621",
+                  "#8BCAE7",
+                  "#AB4057",
+                  "#99DDB4",
+                  "#FCA4A1",
+                  "#919191",
+                  "#BF7080"
+                ]
+              },
+              "version": 3,
+              "widgetType": "line"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 5,
+            "width": 3,
+            "x": 3,
+            "y": 2
+          },
+          "widget": {
+            "name": "35a5a364",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fc3c2bf6",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`advertiser_id`",
+                      "name": "advertiser_id"
+                    },
+                    {
+                      "expression": "`daily_gross_spend`",
+                      "name": "daily_gross_spend"
+                    },
+                    {
+                      "expression": "`daily_net_spend`",
+                      "name": "daily_net_spend"
+                    },
+                    {
+                      "expression": "`current_daily_budget`",
+                      "name": "current_daily_budget"
+                    },
+                    {
+                      "expression": "`status_indicator`",
+                      "name": "status_indicator"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "encodings": {
+                "columns": [
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "advertiser_id",
+                    "fieldName": "advertiser_id",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "numberFormat": "0",
+                    "order": 100000,
+                    "preserveWhitespace": false,
+                    "title": "advertiser_id",
+                    "type": "integer",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "daily_gross_spend",
+                    "fieldName": "daily_gross_spend",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "numberFormat": "0.00",
+                    "order": 100002,
+                    "preserveWhitespace": false,
+                    "title": "daily_gross_spend",
+                    "type": "float",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "daily_net_spend",
+                    "fieldName": "daily_net_spend",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "numberFormat": "0.00",
+                    "order": 100003,
+                    "preserveWhitespace": false,
+                    "title": "daily_net_spend",
+                    "type": "float",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "current_daily_budget",
+                    "fieldName": "current_daily_budget",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "numberFormat": "0.00",
+                    "order": 100004,
+                    "preserveWhitespace": false,
+                    "title": "current_daily_budget",
+                    "type": "float",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "status_indicator",
+                    "fieldName": "status_indicator",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "order": 100010,
+                    "preserveWhitespace": false,
+                    "title": "status_indicator",
+                    "type": "string",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  }
+                ]
+              },
+              "firstNFrozenColumns": 1,
+              "frame": {
+                "showTitle": true,
+                "title": "Net Spend Monitor Alerts"
+              },
+              "invisibleColumns": [
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "dateTimeFormat": "DD/MM/YYYY",
+                  "displayAs": "datetime",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "spend_date",
+                  "order": 100001,
+                  "preserveWhitespace": false,
+                  "title": "spend_date",
+                  "type": "date",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "number",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "remaining_gross_budget",
+                  "numberFormat": "0.00",
+                  "order": 100005,
+                  "preserveWhitespace": false,
+                  "title": "remaining_gross_budget",
+                  "type": "float",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "number",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "remaining_net_budget",
+                  "numberFormat": "0.00",
+                  "order": 100006,
+                  "preserveWhitespace": false,
+                  "title": "remaining_net_budget",
+                  "type": "float",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "number",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "gross_budget_utilization_pct",
+                  "numberFormat": "0.00",
+                  "order": 100007,
+                  "preserveWhitespace": false,
+                  "title": "gross_budget_utilization_pct",
+                  "type": "float",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "number",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "net_budget_utilization_pct",
+                  "numberFormat": "0.00",
+                  "order": 100008,
+                  "preserveWhitespace": false,
+                  "title": "net_budget_utilization_pct",
+                  "type": "float",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "string",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "ad_serving_status",
+                  "order": 100009,
+                  "preserveWhitespace": false,
+                  "title": "ad_serving_status",
+                  "type": "string",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                  "displayAs": "datetime",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "calculated_at",
+                  "order": 100011,
+                  "preserveWhitespace": false,
+                  "title": "calculated_at",
+                  "type": "datetime",
+                  "useMonospaceFont": false
+                }
+              ],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "version": 1,
+              "widgetType": "table",
+              "withRowNumber": false
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 1,
+            "width": 6,
+            "x": 0,
+            "y": 0
+          },
+          "widget": {
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Ad Monitoring Dashboard"
+              ]
+            },
+            "name": "4e04176c"
+          }
+        },
+        {
+          "position": {
+            "height": 5,
+            "width": 3,
+            "x": 3,
+            "y": 7
+          },
+          "widget": {
+            "name": "64a2a1f5",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "71a0124a",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`change_indicator`",
+                      "name": "change_indicator"
+                    },
+                    {
+                      "expression": "SUM(`new_budget`)",
+                      "name": "sum(new_budget)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": {
+                  "displayName": "change_indicator",
+                  "fieldName": "change_indicator",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "displayName": "Sum of new_budget",
+                  "fieldName": "sum(new_budget)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Budget Change Impact"
+              },
+              "mark": {
+                "colors": [
+                  "#FFAB00",
+                  "#FFAB00",
+                  "#00A972",
+                  "#FF3621",
+                  "#8BCAE7",
+                  "#AB4057",
+                  "#99DDB4",
+                  "#FCA4A1",
+                  "#919191",
+                  "#BF7080"
+                ]
+              },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 2,
+            "width": 1,
+            "x": 0,
+            "y": 2
+          },
+          "widget": {
+            "name": "8a537060",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fc3c2bf6",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`daily_gross_spend`",
+                      "name": "daily_gross_spend"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "value": {
+                  "displayName": "daily_gross_spend",
+                  "fieldName": "daily_gross_spend"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Gross Spend"
+              },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 1,
+            "width": 2,
+            "x": 2,
+            "y": 1
+          },
+          "widget": {
+            "name": "c4e14639",
+            "queries": [
+              {
+                "name": "dashboards/01f07cb80fc319b2b6450cc9a61265fe/datasets/01f07cbc1e2a151cb597a1ec5671e3ba_advertiser_id",
+                "query": {
+                  "datasetName": "fc3c2bf6",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`advertiser_id`",
+                      "name": "advertiser_id"
+                    },
+                    {
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)",
+                      "name": "advertiser_id_associativity"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "fields": [
+                  {
+                    "displayName": "advertiser_id",
+                    "fieldName": "advertiser_id",
+                    "queryName": "dashboards/01f07cb80fc319b2b6450cc9a61265fe/datasets/01f07cbc1e2a151cb597a1ec5671e3ba_advertiser_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Client ID"
+              },
+              "version": 2,
+              "widgetType": "filter-single-select"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 3,
+            "width": 3,
+            "x": 0,
+            "y": 4
+          },
+          "widget": {
+            "name": "c532be56",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "2f294ae2",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`advertiser_id`",
+                      "name": "advertiser_id"
+                    },
+                    {
+                      "expression": "`gross_budget_utilization_pct`",
+                      "name": "gross_budget_utilization_pct"
+                    },
+                    {
+                      "expression": "`alert_message`",
+                      "name": "alert_message"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "encodings": {
+                "columns": [
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "advertiser_id",
+                    "fieldName": "advertiser_id",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "numberFormat": "0",
+                    "order": 100000,
+                    "preserveWhitespace": false,
+                    "title": "advertiser_id",
+                    "type": "integer",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "gross_budget_utilization_pct",
+                    "fieldName": "gross_budget_utilization_pct",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "numberFormat": "0.00",
+                    "order": 100004,
+                    "preserveWhitespace": false,
+                    "title": "gross_budget_utilization_pct",
+                    "type": "float",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "alert_message",
+                    "fieldName": "alert_message",
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "order": 100006,
+                    "preserveWhitespace": false,
+                    "title": "alert_message",
+                    "type": "string",
+                    "useMonospaceFont": false,
+                    "visible": true
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Critical Budget Tracking"
+              },
+              "invisibleColumns": [
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "number",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "daily_gross_spend",
+                  "numberFormat": "0.00",
+                  "order": 100001,
+                  "preserveWhitespace": false,
+                  "title": "daily_gross_spend",
+                  "type": "float",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "number",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "current_daily_budget",
+                  "numberFormat": "0.00",
+                  "order": 100002,
+                  "preserveWhitespace": false,
+                  "title": "current_daily_budget",
+                  "type": "float",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "number",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "remaining_gross_budget",
+                  "numberFormat": "0.00",
+                  "order": 100003,
+                  "preserveWhitespace": false,
+                  "title": "remaining_gross_budget",
+                  "type": "float",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "displayAs": "string",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "ad_serving_status",
+                  "order": 100005,
+                  "preserveWhitespace": false,
+                  "title": "ad_serving_status",
+                  "type": "string",
+                  "useMonospaceFont": false
+                },
+                {
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "allowSearch": false,
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                  "displayAs": "datetime",
+                  "highlightLinks": false,
+                  "imageHeight": "",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "linkOpenInNewTab": true,
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "name": "calculated_at",
+                  "order": 100007,
+                  "preserveWhitespace": false,
+                  "title": "calculated_at",
+                  "type": "datetime",
+                  "useMonospaceFont": false
+                }
+              ],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "version": 1,
+              "widgetType": "table",
+              "withRowNumber": false
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 2,
+            "width": 1,
+            "x": 2,
+            "y": 2
+          },
+          "widget": {
+            "name": "c818684e",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fc3c2bf6",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`current_daily_budget`",
+                      "name": "current_daily_budget"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "value": {
+                  "displayName": "current_daily_budget",
+                  "fieldName": "current_daily_budget"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Budget"
+              },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 2,
+            "width": 1,
+            "x": 1,
+            "y": 2
+          },
+          "widget": {
+            "name": "df40b17f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fc3c2bf6",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`daily_net_spend`",
+                      "name": "daily_net_spend"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "value": {
+                  "displayName": "daily_net_spend",
+                  "fieldName": "daily_net_spend"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net Spend"
+              },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 1,
+            "width": 2,
+            "x": 1,
+            "y": 7
+          },
+          "widget": {
+            "name": "e335266b",
+            "queries": [
+              {
+                "name": "dashboards/01f07cb80fc319b2b6450cc9a61265fe/datasets/01f07cc822491a6e8287b417fa5aba57_advertiser_id",
+                "query": {
+                  "datasetName": "5b6468e6",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`advertiser_id`",
+                      "name": "advertiser_id"
+                    },
+                    {
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)",
+                      "name": "advertiser_id_associativity"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "fields": [
+                  {
+                    "displayName": "advertiser_id",
+                    "fieldName": "advertiser_id",
+                    "queryName": "dashboards/01f07cb80fc319b2b6450cc9a61265fe/datasets/01f07cc822491a6e8287b417fa5aba57_advertiser_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              },
+              "version": 2,
+              "widgetType": "filter-single-select"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 1,
+            "width": 2,
+            "x": 0,
+            "y": 1
+          },
+          "widget": {
+            "name": "1e6ad0b2",
+            "queries": [
+              {
+                "name": "dashboards/01f07cb80fc319b2b6450cc9a61265fe/datasets/01f07cbc1e2a151cb597a1ec5671e3ba_calculated_at",
+                "query": {
+                  "datasetName": "fc3c2bf6",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`calculated_at`",
+                      "name": "calculated_at"
+                    },
+                    {
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)",
+                      "name": "calculated_at_associativity"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "fields": [
+                  {
+                    "displayName": "calculated_at",
+                    "fieldName": "calculated_at",
+                    "queryName": "dashboards/01f07cb80fc319b2b6450cc9a61265fe/datasets/01f07cbc1e2a151cb597a1ec5671e3ba_calculated_at"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Date Range"
+              },
+              "version": 2,
+              "widgetType": "filter-single-select"
+            }
+          }
+        }
+      ],
+      "name": "5a35864d",
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ]
+}
