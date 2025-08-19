@@ -12,7 +12,7 @@ validate: validate-bundle generate-dashboard
 
 deploy:
 	@echo "Deploying Databricks bundle to dev target..."
-	databricks bundle deploy -t custom
+	databricks bundle deploy -t custom --force
 
 destroy:
 	@echo "Destroying all resources for dev target..."

@@ -14,8 +14,12 @@ Ad monitoring Service Project
     ```
     $ databricks configure
     ```
-
 3. To deploy a development copy of this project, type:
     ```
-    $ databricks bundle deploy --target custom
+    $ databricks auth login --profile <profile-name>
+    ```
+
+4. To deploy a development copy of this project, type:
+    ```
+    $ databricks bundle deploy -t custom
     ```
