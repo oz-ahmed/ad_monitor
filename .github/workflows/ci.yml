@@ -1,0 +1,43 @@
+name: 'CI - Deploy and Run in Dev'
+
+concurrency:
+  group: dev-deploy
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'src/**'
+      - 'resources/**'
+      - 'databricks.yml'
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'src/**'
+      - 'resources/**'
+      - 'databricks.yml'
+
+jobs:
+  deploy-and-run-dev:
+    name: 'Deploy & Run Bundle in Dev'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Databricks CLI v2
+        uses: databricks/setup-cli@main
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install development dependencies
+        run: uv sync
+
+      - name: Deploy bundle to dev
+        run: databricks bundle deploy -t custom
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_DEV_TOKEN }}
+          DATABRICKS_BUNDLE_ENV: custom
