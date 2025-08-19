@@ -1,0 +1,50 @@
+{
+  "name": "Databricks Ad Monitor Project",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "databricks.databricks",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.flake8",
+        "ms-python.black-formatter",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspaces/ad_monitor/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "python.terminal.activateEnvInCurrentTerminal": true,
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash",
+            "args": ["-l"]
+          }
+        },
+        "files.watcherExclude": {
+          "**/target/**": true,
+          "**/.databricks/**": true,
+          "**/.venv/**": true,
+          "**/node_modules/**": true
+        },
+        "[shellscript]": {
+          "files.eol": "\n"
+        }
+      }
+    }
+  },
+  "containerEnv": {
+    "DATABRICKS_CONFIG_PROFILE": "DEFAULT"
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash -c 'source /usr/local/bin/post-create.sh && exec bash'",
+  "forwardPorts": [],
+"mounts": [
+    "source=${localEnv:USERPROFILE}/.databrickscfg,target=/home/vscode/.databrickscfg,type=bind,consistency=cached"
+]
+}
