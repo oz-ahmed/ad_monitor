@@ -57,42 +57,46 @@ resources:
         
 
   jobs:
-    medallion_orchestrator:
-      name: "Job - Medallion Ad Spend Monitor"
+    real_time_data_simulator:
+      name: "Real Time Data Simulator"
+      trigger:
+        periodic:
+          interval: 1
+          unit: HOURS
       tasks:
-        
-        # TASK 1: Run the single Python script to set up and generate data
+        # Run the single Python script to set up and generate data
         - task_key: "Setup_and_Generate_Data"
           notebook_task:
             notebook_path: ../src/notebooks/landing.ipynb
 
-        # TASK 2
+    medallion_orchestrator:
+      name: "Job - Medallion Ad Spend Monitor"
+      trigger:
+        periodic:
+          interval: 1
+          unit: HOURS
+      tasks:
+        # TASK 1
         - task_key: "Run_Bronze_Pipeline"
-          depends_on:
-            - task_key: "Setup_and_Generate_Data"
+          # depends_on:
+          #   - task_key: "Setup_and_Generate_Data"
           pipeline_task:
             pipeline_id: ${resources.pipelines.bronze_pipeline.id}
 
-        # Task 3
+        # Task 2
         - task_key: "Run_Silver_Pipeline"
           depends_on:
             - task_key: "Run_Bronze_Pipeline"
           pipeline_task:
             pipeline_id: ${resources.pipelines.silver_pipeline.id}
 
-        # Task 4
+        # Task 3
         - task_key: "Run_Gold_Pipeline"
           depends_on:
             - task_key: "Run_Silver_Pipeline"
           pipeline_task:
             pipeline_id: ${resources.pipelines.gold_pipeline.id}
+
       email_notifications:
         on_failure:
           - ahmedrufai.otuoze@data2bots.com #move to GH
-    
-    dashboard_refresh_job:
-      name: "Ad Dashboard Refresh"
-
-      schedule:
-        quartz_cron_expression: '0 0 8 * * ?' # daily at 8am
-        timezone_id: UTC

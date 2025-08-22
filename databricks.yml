@@ -10,7 +10,7 @@ variables:
     description: "Schema name for job outputs"
   warehouse_id:
     description: "Warehouse ID for dashboard queries and SQL tasks"
-    default: 6c338bb79ae92785 #moe this to GH 
+    default: 6c338bb79ae92785 # move this to GH 
   mode:
     description: "Execution mode (development or production)"
 
@@ -44,12 +44,4 @@ targets:
     sync:
       exclude:
         - src/dashboards/*.lvdash.json
-  # prod:
-  #   mode: production
-  #   workspace:
-  #     # host: https://dbc-778ed4e0-7dc4.cloud.databricks.com
-  #     # We explicitly deploy to /Workspace/Users/ahmedrufai.otuoze@data2bots.com to make sure we only have a single copy.
-  #     root_path: /Workspace/Users/ahmedrufai.otuoze@data2bots.com/.bundle/${bundle.name}/${bundle.target}
-  #   permissions:
-  #     - user_name: ahmedrufai.otuoze@data2bots.com
-  #       level: CAN_MANAGE
+

@@ -37,7 +37,7 @@ jobs:
         run: uv sync
 
       - name: Deploy bundle to dev
-        run: databricks bundle deploy -t custom
+        run: databricks bundle deploy -t custom --force
         env:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_DEV_TOKEN }}
           DATABRICKS_BUNDLE_ENV: custom
