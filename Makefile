@@ -15,7 +15,7 @@ deploy:
 	databricks bundle deploy -t custom --force
 
 destroy:
-	@echo "Destroying all resources for dev target..."
+	@echo "Destroying all resources for custom target..."
 	databricks bundle destroy -t custom
 
 
