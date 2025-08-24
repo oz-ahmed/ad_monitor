@@ -59,10 +59,10 @@ resources:
   jobs:
     real_time_data_simulator:
       name: "Real Time Data Simulator"
-      trigger:
-        periodic:
-          interval: 1
-          unit: HOURS
+      # trigger:
+      #   periodic:
+      #     interval: 1
+      #     unit: HOURS
       tasks:
         # Run the single Python script to set up and generate data
         - task_key: "Setup_and_Generate_Data"
@@ -71,10 +71,10 @@ resources:
 
     medallion_orchestrator:
       name: "Job - Medallion Ad Spend Monitor"
-      trigger:
-        periodic:
-          interval: 1
-          unit: HOURS
+      # trigger:
+      #   periodic:
+      #     interval: 1
+      #     unit: HOURS
       tasks:
         # TASK 1
         - task_key: "Run_Bronze_Pipeline"
