@@ -20,28 +20,29 @@ You can follow these commands to setup manually:
     $ uv sync %% source .venv/bin/activate # .venv/Scripts/activate for windows
     ```
 
-3a. Install databricks cli:
+2. Install databricks cli:
     ```
     $ curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
     ```
 
-3b. Configure your workspace:
+2. Install databricks cli:
     ```
     $ databricks configure
     ```
+
 This command will ask for the Host URL and Personal Asset Token from Databricks
 
-4. Login to a profile:
+5. Login to a profile:
     ```
     $ databricks auth login --profile <profile-name>
     ```
 
-5. Validate and retrieve Dashboard state:
+6. Validate and retrieve Dashboard state:
     ```
     $ make validate
     ```
 
-6. Deploy to environment:
+7. Deploy to environment:
     ```
     $ make deploy
     ```
