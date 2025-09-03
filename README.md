@@ -6,7 +6,7 @@ Ad monitoring Service Project
 Project is confugured with DevContainers, all dependencies are installed automatically upon load.
 All project documents have also been attached to this repository.
 
-![Project Screenshot](./assets/archi.png)
+![Project Screenshot](./assets/proj.png)
 
 You can follow these commands to setup manually:
 
