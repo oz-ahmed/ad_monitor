@@ -25,7 +25,7 @@ You can follow these commands to setup manually:
     $ curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
     ```
 
-2. Install databricks cli:
+2. Configure your workspace:
     ```
     $ databricks configure
     ```
