@@ -20,7 +20,12 @@ You can follow these commands to setup manually:
     $ uv sync %% source .venv/bin/activate # .venv/Scripts/activate for windows
     ```
 
-3. Configure your workspace:
+3a. Install databricks cli:
+    ```
+    $ curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+    ```
+
+3b. Configure your workspace:
     ```
     $ databricks configure
     ```
