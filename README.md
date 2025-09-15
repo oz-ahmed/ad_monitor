@@ -4,7 +4,7 @@ Ad monitoring Service Project
 
 ## Getting started
 Project is confugured with DevContainers, all dependencies are installed automatically upon load.
-All project documents have also been attached to this repository.
+All project documents have also been attached to this repository...
 
 ![Project Screenshot](./assets/proj.png)
 
