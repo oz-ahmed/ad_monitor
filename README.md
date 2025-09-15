@@ -8,7 +8,7 @@ All project documents have also been attached to this repository.
 
 ![Project Screenshot](./assets/proj.png)
 
-You can follow these commands to setup manually:
+You can follow these commands to setup manually :
 
 1. Setup uv:
     ```
